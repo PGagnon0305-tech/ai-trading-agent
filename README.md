@@ -16,7 +16,7 @@ The agent-native skills directory for **Trader Dev MCP** — write Pine Script, 
 [![Cursor](https://img.shields.io/badge/Cursor-compatible-000000)](#-30-second-quickstart)
 [![Pine Script](https://img.shields.io/badge/Pine%20Script-AI%20native-22C55E)](#-what-you-can-build)
 
-**[Quickstart](#-30-second-quickstart)** · **[Skills](#-the-skills-directory)** · **[Examples](#-example-session)** · **[Roadmap](#-roadmap)** · **[Discord](#-community)** · **[YouTube](#-community)**
+**[Quickstart](#-30-second-quickstart)** · **[Workbook](WORKBOOK.md)** · **[Skills](#-the-skills-directory)** · **[Examples](#-example-session)** · **[Roadmap](#-roadmap)** · **[Discord](#-community)** · **[YouTube](#-community)**
 
 </div>
 
@@ -39,6 +39,8 @@ https://github.com/user-attachments/assets/fabc1c81-dab0-4ce5-863d-2d5fa633a579
 Most AI tools help traders write code. **AI Trader MCP helps AI agents run the entire research workflow** — generate hypotheses, write Pine Script, backtest, optimize, compare, and report. Built by [DaviddTech](https://davidd.tech), backtesting live on YouTube for 5+ years.
 
 ## ⚡ 30-second quickstart
+
+> 🤖 **Prefer to hand it all to your AI?** Open [WORKBOOK.md](WORKBOOK.md) and paste it into any MCP-capable agent. It's a step-by-step, self-contained install and usage guide written for AI agents to follow top to bottom.
 
 <div align="center">
 
