@@ -217,3 +217,79 @@ def test_invariants_under_hostile_data(seed):
 def test_backtest_report_shape():
     rep = backtest.run(data.synthetic(2000, seed=2), Config())
     assert {"final_equity", "max_drawdown_pct", "trades", "profit_factor"} <= set(rep)
+
+
+# ---------- paper loop replay with a fake feed ----------
+from bot.__main__ import run_paper  # noqa: E402
+
+
+class FakeFeed:
+    """Serves the last 300 closed candles as of a moving 'now', like ccxt would."""
+
+    def __init__(self, candles, start=200, step=1):
+        self.candles, self.now, self.step = candles, start, step
+        self.fail = 0
+
+    def __call__(self):
+        if self.fail:
+            self.fail -= 1
+            raise ConnectionError("simulated outage")
+        self.now = min(self.now + self.step, len(self.candles))
+        return self.candles[max(0, self.now - 300): self.now]
+
+
+def test_paper_loop_matches_backtest():
+    cfg = Config().validate()
+    bars = data.synthetic(1500, seed=7)
+    feed = FakeFeed(bars, start=300)
+    e = run_paper(cfg, feed, 0, sleep=lambda s: None, max_polls=len(bars) - 300 + 1)
+    ref = Engine(cfg)
+    for c in bars:
+        ref.on_candle(c)
+    assert e.last_ts == bars[-1].ts
+    assert e.broker.equity(e.last_close) == pytest.approx(ref.broker.equity(ref.last_close), rel=0.05)
+    assert e.trades  # it actually traded
+
+
+def test_paper_loop_restart_resumes_state():
+    cfg = Config().validate()
+    bars = data.synthetic(1500, seed=7)
+    feed = FakeFeed(bars, start=300)
+    run_paper(cfg, feed, 0, sleep=lambda s: None, max_polls=400)  # "crash" here
+    saved = json.load(open(cfg.state_file))
+    feed.now += 25  # 25 candles pass while the bot is down
+    e2 = run_paper(cfg, feed, 0, sleep=lambda s: None, max_polls=1)
+    assert e2.last_ts == bars[feed.now - 1].ts
+    assert e2.strategy.ready
+    assert e2.risk.s.peak >= saved["risk"]["peak"]
+
+
+def test_paper_loop_outage_halts_after_five_failures():
+    cfg = Config().validate()
+    feed = FakeFeed(data.synthetic(600, seed=2), start=300)
+    run_paper(cfg, feed, 0, sleep=lambda s: None, max_polls=3)
+    feed.fail = 10
+    e = run_paper(cfg, feed, 0, sleep=lambda s: None, max_polls=10)
+    assert "feed unavailable" in e.risk.s.halted
+    assert json.load(open(cfg.state_file))["risk"]["halted"]
+
+
+def test_paper_loop_survives_single_blip_and_garbage():
+    cfg = Config().validate()
+    bars = data.synthetic(800, seed=4)
+    feed = FakeFeed(bars, start=300)
+    run_paper(cfg, feed, 0, sleep=lambda s: None, max_polls=5)
+    feed.fail = 2
+    feed.candles = list(feed.candles)
+    feed.candles[400] = Candle(bars[400].ts, float("nan"), 1, 1, 1)
+    e = run_paper(cfg, feed, 0, sleep=lambda s: None, max_polls=100)
+    assert not e.risk.s.halted or "bad candles" not in e.risk.s.halted
+
+
+def test_paper_loop_stops_on_kill_switch():
+    cfg = Config().validate()
+    feed = FakeFeed(data.synthetic(900, seed=7), start=300)
+    run_paper(cfg, feed, 0, sleep=lambda s: None, max_polls=150)
+    open("KILL", "w").close()
+    e = run_paper(cfg, feed, 0, sleep=lambda s: None, max_polls=200)
+    assert e.broker.qty == 0 and e.last_ts < feed.candles[-1].ts  # stopped early
