@@ -14,3 +14,9 @@ __pycache__/
 *.mov
 *.webm
 *.mkv
+
+# bot runtime files
+state.json
+KILL
+__pycache__/
+.pytest_cache/
